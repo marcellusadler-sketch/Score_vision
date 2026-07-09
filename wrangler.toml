@@ -1,0 +1,21 @@
+name = "football-ia-secure-worker"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Detèksyon gòl/match chak 2 minit (pou pati notifikasyon an).
+# San SPORTS_API_KEY_V2 ak FIREBASE_SERVICE_ACCOUNT mete, sa pa fè anyen.
+[triggers]
+crons = ["*/2 * * * *"]
+
+# ⚠️ POU NOTIFIKASYON YO MACHE: kreye yon KV Namespace sou Cloudflare
+# Dashboard (Workers & Pages → KV → Create a namespace), rele l "MATCH_STATE",
+# kopye ID li ba w la, epi mete l nan plas "REPLACE_WITH_KV_ID" anba a.
+# San w pa fè sa, tout rès Worker la (peman, IA, match) ap kontinye mache nòmal.
+[[kv_namespaces]]
+binding = "MATCH_STATE"
+id = "75c67214cbd0487293deb7e538cbcdf5"
+
+# NÒT: PA mete okenn kle sekrè isit la nan wrangler.toml.
+# Tout kle (MONCASH_*, NATCASH_*, CLAUDE_API_KEY, GROQ_API_KEY, PERPLEXITY_API_KEY,
+# SPORTS_API_KEY, SPORTS_API_KEY_V2, FIREBASE_SERVICE_ACCOUNT) ajoute apre
+# nan Cloudflare Dashboard → Settings → Variables and Secrets.
