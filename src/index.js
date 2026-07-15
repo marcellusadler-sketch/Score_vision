@@ -1,8 +1,8 @@
 /**
  * Football IA — Secure Worker
  * -----------------------------------------------------------------
- * Tout kle sekrè (Moncash, Natcash, Claude, Groq, Perplexity) rete
- * ISIT LA SÈLMAN, kòm "Secrets" nan Cloudflare. Telefòn moun yo
+ * Tout kle sekrè (Moncash, Natcash, Claude, Groq, Perplexity, Gemini)
+ * rete ISIT LA SÈLMAN, kòm "Secrets" nan Cloudflare. Telefòn moun yo
  * (index.html) sèlman rele wout sa yo — yo pa janm wè okenn kle.
  * -----------------------------------------------------------------
  */
@@ -64,10 +64,7 @@ export default {
     }
   },
 
-  // 🔔 Sa a kouri otomatikman chak 2 minit (wè "crons" nan wrangler.toml) —
-  // li detekte gòl/match k ap kòmanse/fini, epi voye push notification.
-  // San SPORTS_API_KEY_V2 ak FIREBASE_SERVICE_ACCOUNT mete kòm Secrets,
-  // li senpleman pa fè anyen (san erè, san danje).
+  // 🔔 Kouri otomatikman chak 2 minit (pou gòl/match k ap kòmanse/fini)
   async scheduled(event, env, ctx) {
     if (!env.SPORTS_API_KEY_V2 || !env.FIREBASE_SERVICE_ACCOUNT) return;
     ctx.waitUntil(checkMatchesAndNotify(env));
@@ -146,10 +143,6 @@ async function moncashVerify(request, env) {
 }
 
 /* ══════════════════ NATCASH ══════════════════ */
-/* Sa a itilize URL ou konfigire yo (NATCASH_TOKEN_URL, NATCASH_CREATE_URL,
-   NATCASH_VERIFY_URL, NATCASH_REDIRECT_BASE) paske chak founisè Natcash ka
-   gen yon fòma ki yon ti kras diferan. Ajiste chan yo si dokiman Natcash ou
-   resevwa mande yon lòt non chan. */
 
 async function natcashGetToken(env) {
   const creds = btoa(`${env.NATCASH_CLIENT_ID}:${env.NATCASH_SECRET_KEY}`);
@@ -213,7 +206,6 @@ async function natcashVerify(request, env) {
 
 /* ══════════════════ SPORTS (TheSportsDB) ══════════════════ */
 
-// Mape non spò ki soti nan app la (index.html) ak non egzat TheSportsDB mande
 const SPORT_MAP = {
   Soccer: "Soccer",
   Basketball: "Basketball",
@@ -224,24 +216,39 @@ const SPORT_MAP = {
 
 async function sportsEvents(request, env) {
   const url = new URL(request.url);
+  const key = env.SPORTS_API_KEY || "123"; // '123' se kle gratis la si pa gen kle konfigire nan env la
+  
+  const leagueParam = url.searchParams.get("league");
+  const sportParam = url.searchParams.get("sport");
+
+  // A. DETEKSYON AK CHAJMAN MATCH MONDIAL YO (FIFA World Cup - ID 4344)
+  if (leagueParam === "worldcup" || sportParam === "World Cup") {
+    // Nou rele API an pou rale pwochen match lig sa a (ID 4344 pou FIFA World Cup)
+    const res = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/${key}/eventsnextleague.php?id=4344`
+    );
+    const data = await res.json();
+    return json(data, res.status);
+  }
+
+  // B. RECHÈCH STANDARD PA DAT (Jan l te ye anvan an)
   const d = url.searchParams.get("d");
-  if (!d) return json({ error: "Paramèt 'd' (dat) obligatwa" }, 400);
+  if (!d) {
+    return json({ error: "Paramèt 'd' (dat) oubyen 'league=worldcup' obligatwa" }, 400);
+  }
 
-  const sportParam = url.searchParams.get("sport") || "Soccer";
-  const sport = SPORT_MAP[sportParam] || "Soccer";
-
-  const key = env.SPORTS_API_KEY || "123"; // '123' se kle gratis piblik TheSportsDB
+  const selectedSport = SPORT_MAP[sportParam] || "Soccer";
   const res = await fetch(
-    `https://www.thesportsdb.com/api/v1/json/${key}/eventsday.php?d=${encodeURIComponent(d)}&s=${encodeURIComponent(sport)}`
+    `https://www.thesportsdb.com/api/v1/json/${key}/eventsday.php?d=${encodeURIComponent(d)}&s=${encodeURIComponent(selectedSport)}`
   );
   const data = await res.json();
   return json(data, res.status);
 }
 
-/* ══════════════════ AI (Claude / Groq / Perplexity) ══════════════════ */
+/* ══════════════════ AI (Claude / Groq / Perplexity / Gemini) ══════════════════ */
 
 async function aiClaude(request, env) {
-  const body = await request.json(); // { system, messages, max_tokens }
+  const body = await request.json();
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -261,7 +268,7 @@ async function aiClaude(request, env) {
 }
 
 async function aiGroq(request, env) {
-  const body = await request.json(); // pase tout jan l soti a (model, messages, temperature, response_format, elatriye)
+  const body = await request.json();
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -289,7 +296,7 @@ async function aiPerplexity(request, env) {
 }
 
 async function aiGemini(request, env) {
-  const body = await request.json(); // { model, contents, systemInstruction, generationConfig }
+  const body = await request.json();
   const model = body.model || "gemini-2.0-flash";
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -311,8 +318,6 @@ async function aiGemini(request, env) {
 }
 
 /* ══════════════════ NOTIFIKASYON (GÒL / MATCH) ══════════════════ */
-/* Bezwen: env.MATCH_STATE (KV binding), env.SPORTS_API_KEY_V2 (Secret),
-   env.FIREBASE_SERVICE_ACCOUNT (Secret — tout kontni fichye JSON la). */
 
 async function checkMatchesAndNotify(env) {
   const log = { checked: 0, notifications: 0, errors: [] };
