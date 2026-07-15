@@ -1,4 +1,4 @@
-name = "football-ia-secure-worker"
+name = "scorevision"
 main = "src/index.js"
 compatibility_date = "2024-11-01"
 
