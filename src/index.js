@@ -1,5 +1,5 @@
 /**
- * Football IA — Secure Worker
+ * Football IA — Secure Worker (PREMIUM VERSION)
  * -----------------------------------------------------------------
  * Tout kle sekrè (Moncash, Natcash, Claude, Groq, Perplexity, Gemini)
  * rete ISIT LA SÈLMAN, kòm "Secrets" nan Cloudflare. Telefòn moun yo
@@ -204,7 +204,7 @@ async function natcashVerify(request, env) {
   return json({ success: false });
 }
 
-/* ══════════════════ SPORTS (TheSportsDB) ══════════════════ */
+/* ══════════════════ SPORTS (TheSportsDB Premium V2) ══════════════════ */
 
 const SPORT_MAP = {
   Soccer: "Soccer",
@@ -216,22 +216,29 @@ const SPORT_MAP = {
 
 async function sportsEvents(request, env) {
   const url = new URL(request.url);
-  const key = env.SPORTS_API_KEY || "123"; // '123' se kle gratis la si pa gen kle konfigire nan env la
-  
+  // Depi ou nan Premium, nou itilize kle V2 a ki nan Secrets Cloudflare ou yo
+  const key = env.SPORTS_API_KEY_V2; 
+  if (!key) {
+    return json({ error: "SVP konfigire sekrè SPORTS_API_KEY_V2 a nan Cloudflare pou aksè Premium!" }, 401);
+  }
+
   const leagueParam = url.searchParams.get("league");
   const sportParam = url.searchParams.get("sport");
 
-  // A. DETEKSYON AK CHAJMAN MATCH MONDIAL YO (FIFA World Cup - ID 4344)
-  if (leagueParam === "worldcup" || sportParam === "World Cup") {
-    // Nou rele API an pou rale pwochen match lig sa a (ID 4344 pou FIFA World Cup)
+  // A. POU RECHÈCH MATCH MONDIAL YO (FIFA World Cup - ID 4429)
+  if (leagueParam === "worldcup" || sportParam === "World Cup" || sportParam === "worldcup") {
+    // API V2 Premium mande pou kle a ale nan HEADER: "X-API-KEY"
     const res = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/${key}/eventsnextleague.php?id=4344`
+      "https://www.thesportsdb.com/api/v2/json/schedule/next/league/4429",
+      {
+        headers: { "X-API-KEY": key }
+      }
     );
     const data = await res.json();
     return json(data, res.status);
   }
 
-  // B. RECHÈCH STANDARD PA DAT (Jan l te ye anvan an)
+  // B. RECHÈCH STANDARD PA DAT (API V2)
   const d = url.searchParams.get("d");
   if (!d) {
     return json({ error: "Paramèt 'd' (dat) oubyen 'league=worldcup' obligatwa" }, 400);
@@ -239,7 +246,10 @@ async function sportsEvents(request, env) {
 
   const selectedSport = SPORT_MAP[sportParam] || "Soccer";
   const res = await fetch(
-    `https://www.thesportsdb.com/api/v1/json/${key}/eventsday.php?d=${encodeURIComponent(d)}&s=${encodeURIComponent(selectedSport)}`
+    `https://www.thesportsdb.com/api/v2/json/schedule/day/${d}/${selectedSport}`,
+    {
+      headers: { "X-API-KEY": key }
+    }
   );
   const data = await res.json();
   return json(data, res.status);
